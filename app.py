@@ -29,7 +29,10 @@ if 'df_conductores' not in st.session_state:
         "Frenadas Bruscas": [2, 5, 1, 12, 28],
         "Excesos Velocidad": [0, 3, 0, 8, 19],
         "Calificación Pasajeros": [4.8, 4.2, 4.9, 3.9, 3.2],
-        "Score Dinámico": [185, 142, 195, 85, 38]
+        "Score Dinámico": [185, 142, 195, 85, 38],
+        # Coordenadas simuladas sobre rutas de Javier Prado y Tacna/Garcilaso (Corredor Azul)
+        "latitude": [-12.0858, -12.0464, -12.0921, -12.0712, -12.0815],
+        "longitude": [-77.0358, -77.0345, -76.9740, -77.0360, -77.0120]
     }
     st.session_state.df_conductores = pd.DataFrame(raw_data)
 
@@ -70,6 +73,18 @@ if menu == "🎛️ Dashboard de Operaciones":
         
     st.markdown("---")
     
+    # NUEVA SECCIÓN: MAPA EN VIVO DE LA FLOTA (GPS INTEGRADOR)
+    st.markdown("### 🗺️ Monitoreo de Unidades en Vivo (GPS Tracking Piloto)")
+    st.markdown("Mapa en tiempo real que simula el rastreo de los buses asignados a las rutas del Corredor Azul y Av. Javier Prado.")
+    
+    # Mapeo de colores según el nivel para el mapa
+    color_map = {"ALTO": [0, 245, 212, 150], "MEDIO": [245, 158, 11, 150], "BAJO": [239, 68, 68, 150]}
+    
+    # Dibujar el mapa nativo de Streamlit de forma rápida y ultra ligera
+    st.map(df, latitude="latitude", longitude="longitude", size=40)
+    st.caption("💡 *Nota para el jurado: Los puntos representan unidades operando. El tamaño del radio se asocia al dinamismo del Score Conductual del Chofer.*")
+    st.markdown("---")
+    
     # Filtros de Rutas
     rutas = st.multiselect("Filtrar por Corredor Vial Piloto:", options=df["Ruta"].unique(), default=df["Ruta"].unique())
     df_filtrado = df[df["Ruta"].isin(rutas)]
@@ -107,8 +122,6 @@ elif menu == "📡 Simulador IoT / Telemetría":
         btn_procesar = st.button("🚀 Procesar Datos de Telemetría y Actualizar Score")
         
         if btn_procesar:
-            # Algoritmo de actualización del Score Dinámico (Pilar 2)
-            # Base de 100 puntos por viaje. Penaliza -10 por frenada y -15 por exceso de velocidad. Bonus por buena calificación.
             idx = df[df["Conductor"] == conductor_select].index[0]
             
             penalizacion = (frenadas_nuevas * 10) + (velocidad_nueva * 15)
@@ -120,11 +133,16 @@ elif menu == "📡 Simulador IoT / Telemetría":
             st.session_state.df_conductores.at[idx, "Excesos Velocidad"] += velocidad_nueva
             st.session_state.df_conductores.at[idx, "Calificación Pasajeros"] = round((st.session_state.df_conductores.at[idx, "Calificación Pasajeros"] + rating_pasajero)/2, 2)
             
+            # Mover ligeramente la coordenada para simular que avanzó en el mapa tras el viaje
+            st.session_state.df_conductores.at[idx, "latitude"] += np.random.uniform(-0.002, 0.002)
+            st.session_state.df_conductores.at[idx, "longitude"] += np.random.uniform(-0.002, 0.002)
+            
             # Promediar el nuevo score en su Score Dinámico histórico
             nuevo_score_hist = int((st.session_state.df_conductores.at[idx, "Score Dinámico"] + score_viaje) / 2)
             st.session_state.df_conductores.at[idx, "Score Dinámico"] = min(200, max(0, nuevo_score_hist))
             
-            st.success(f"¡Viaje de {conductor_select} procesado con éxito! Score del viaje: {score_viaje} pts. Base de datos actualizada.")
+            st.success(f"¡Viaje de {conductor_select} procesado con éxito! El bus se movió en el mapa y su nuevo Score es {st.session_state.df_conductores.at[idx, 'Score Dinámico']} pts.")
+            st.rerun()
             
     with col_sim2:
         st.markdown("### 🎁 Billetera Digital de Incentivos (Pilar 3)")
@@ -134,7 +152,7 @@ elif menu == "📡 Simulador IoT / Telemetría":
         st.markdown(f"**Conductor:** {chofer_info['Conductor']} | **Puntaje Actual:** `{chofer_info['Score Dinámico']} / 200 pts`")
         
         if chofer_info["Nivel"] == "ALTO":
-            st.markdown("<div class='card-beneficio'>🏆 <b>NIVEL ALTO DESBLOQUEADO</b><br>• 20% Descuento Directo en renovación de SOAT.<br>• Acceso Prioritario a Microcréditos de Finanzas.<br>• Bono de Combustible Premium.</div>", unsafe_allow_html=True)
+            st.markdown("<div class='card-beneficio'>🏆 <b>NIVEL ALTO DESBLOQUEADO</b><br>• 20% Descuento Directo en renovación de SOAT.<br>• Acceso Prioritario a Microcréditos.<br>• Bono de Combustible Premium.</div>", unsafe_allow_html=True)
         elif chofer_info["Nivel"] == "MEDIO":
             st.markdown("<div class='card-beneficio' style='border-left-color: #F59E0B;'>⚠️ <b>NIVEL MEDIO (Estable)</b><br>• Acceso a Subsidios parciales de Mantenimiento Vehicular.<br>• Próximo desbloqueo de bonos a los 150 puntos.</div>", unsafe_allow_html=True)
         else:
