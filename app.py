@@ -60,7 +60,7 @@ try:
         f"""
         <div style="display: flex; justify-content: center; margin-top: 10px; margin-bottom: 15px;">
             <img src="data:image/jpeg;base64,{encoded_img}" 
-                 style="width: 300px; height: 300px; border-radius: 50%; object-fit: cover; border: 3px solid #00F5D4; box-shadow: 0px 4px 15px rgba(0, 245, 212, 0.4);">
+                 style="width: 260px; height: 260px; border-radius: 50%; object-fit: cover; border: 3px solid #00F5D4; box-shadow: 0px 4px 15px rgba(0, 245, 212, 0.4);">
         </div>
         """, 
         unsafe_allow_html=True
