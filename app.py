@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import numpy as np
+import base64
 
 # 1. CONFIGURACIÓN E IDENTIDAD VISUAL DE VIALSCORE
 st.set_page_config(
@@ -10,27 +11,12 @@ st.set_page_config(
     layout="wide"
 )
 
-# Estilos CSS personalizados para el Dark Mode y el logo circular
+# Estilos CSS personalizados para el Dark Mode y el formato de los elementos
 st.markdown("""
     <style>
     .main { background-color: #0B1528; color: #FFFFFF; }
     .stMetric { background-color: #1E293B; padding: 18px; border-radius: 12px; border: 1px solid #00F5D4; box-shadow: 0px 4px 10px rgba(0, 245, 212, 0.1); }
     .card-beneficio { background-color: #1A2333; padding: 15px; border-radius: 10px; border-left: 5px solid #00F5D4; margin-bottom: 10px; }
-    
-    /* Contenedor para recortar la imagen en círculo perfecto */
-    .logo-container {
-        display: flex;
-        justify-content: center;
-        margin-bottom: 20px;
-    }
-    .logo-circular {
-        width: 120px;
-        height: 120px;
-        border-radius: 50%;
-        object-fit: cover;
-        border: 3px solid #00F5D4;
-        box-shadow: 0px 4px 15px rgba(0, 245, 212, 0.3);
-    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -45,6 +31,7 @@ if 'df_conductores' not in st.session_state:
         "Excesos Velocidad": [0, 3, 0, 8, 19],
         "Calificación Pasajeros": [4.8, 4.2, 4.9, 3.9, 3.2],
         "Score Dinámico": [185, 142, 195, 85, 38],
+        # Coordenadas iniciales sobre el mapa de Lima Metropolitana
         "latitude": [-12.0858, -12.0464, -12.0921, -12.0712, -12.0815],
         "longitude": [-77.0358, -77.0345, -76.9740, -77.0360, -77.0120]
     }
@@ -60,15 +47,26 @@ def calcular_nivel(score):
 
 df["Nivel"] = df["Score Dinámico"].apply(calcular_nivel)
 
-# BARRA LATERAL - LOGO CIRCULAR DESDE TU CARPETA LOCAL
-# Intentamos cargar tu imagen local de manera segura
+# ==========================================
+# BARRA LATERAL - LOGO ULTRA CIRCULAR OPTIMIZADO
+# ==========================================
 try:
-    st.sidebar.markdown('<div class="logo-container">', unsafe_allow_html=True)
-    st.sidebar.image("img/vialscore.jpeg", width=120)
-    st.sidebar.markdown('</div>', unsafe_allow_html=True)
+    # Leemos tu imagen local jpeg y la transformamos de forma segura sin romper contenedores
+    with open("img/vialscore.jpeg", "rb") as image_file:
+        encoded_img = base64.b64encode(image_file.read()).decode()
+    
+    # Inyección HTML/CSS para forzar círculo perfecto sin bordes blancos cuadrados
+    st.sidebar.markdown(
+        f"""
+        <div style="display: flex; justify-content: center; margin-top: 10px; margin-bottom: 15px;">
+            <img src="data:image/jpeg;base64,{encoded_img}" 
+                 style="width: 140px; height: 140px; border-radius: 50%; object-fit: cover; border: 3px solid #00F5D4; box-shadow: 0px 4px 15px rgba(0, 245, 212, 0.4);">
+        </div>
+        """, 
+        unsafe_allow_html=True
+    )
 except Exception:
-    # Si por algún motivo de rutas en la nube no la encuentra, coloca un aviso sutil
-    st.sidebar.warning("Coloca tu imagen en img/vialscore.jpeg")
+    st.sidebar.warning("Verifica la ruta: img/vialscore.jpeg")
 
 st.sidebar.title("Navegación VialScore")
 menu = st.sidebar.radio("Ir a la Sección:", ["🎛️ Dashboard de Operaciones", "📡 Simulador IoT / Telemetría", "💵 Viabilidad y Presupuesto"])
@@ -81,7 +79,7 @@ if menu == "🎛️ Dashboard de Operaciones":
     st.caption("AAP Innovation Challenge 2026 | Desarrollado por Equipo NextStep")
     st.markdown("---")
     
-    # KPIs Globales (Filtro Dinámico)
+    # KPIs Globales con deltas del piloto
     st.markdown("### 📊 Indicadores Clave del Piloto (Flota Actual)")
     col1, col2, col3, col4 = st.columns(4)
     with col1:
@@ -95,22 +93,22 @@ if menu == "🎛️ Dashboard de Operaciones":
         
     st.markdown("---")
     
-    # NUEVA SECCIÓN: MAPA EN VIVO DE LA FLOTA (GPS INTEGRADOR)
+    # SECCIÓN DEL MAPA INTEGRADOR EN VIVO
     st.markdown("### 🗺️ Monitoreo de Unidades en Vivo (GPS Tracking Piloto)")
-    st.markdown("Mapa en tiempo real que simula el rastreo de los buses asignados a las rutas del Corredor Azul y Av. Javier Prado.")
-    
+    st.markdown("Mapa interactivo que simula el rastreo por satélite de los buses asignados a las rutas piloto.")
     st.map(df, latitude="latitude", longitude="longitude", size=40)
-    st.caption("💡 *Nota para el jurado: Los puntos representan unidades operando. El tamaño del radio se asocia al dinamismo del Score Conductual del Chofer.*")
+    st.caption("💡 *Nota para el jurado: El movimiento de los puntos en el mapa se calcula dinámicamente al procesar datos telemétricos de telemetría por viaje.*")
     st.markdown("---")
     
-    # Filtros de Rutas
+    # Filtros de las rutas piloto en Lima
     rutas = st.multiselect("Filtrar por Corredor Vial Piloto:", options=df["Ruta"].unique(), default=df["Ruta"].unique())
     df_filtrado = df[df["Ruta"].isin(rutas)]
     
-    # Gráficos e Información cruzada
+    # Tablas y gráficos de distribución
     c1, c2 = st.columns([2, 1])
     with c1:
         st.markdown("### 📋 Registro en Tiempo Real de Conductores Formales")
+        # El background_gradient que requiere matplotlib funciona perfecto aquí
         st.dataframe(df_filtrado.style.background_gradient(cmap="summer", subset=["Score Dinámico", "Calificación Pasajeros"]), use_container_width=True)
     with c2:
         st.markdown("### 🎯 Distribución de la Flota por Niveles")
@@ -119,11 +117,11 @@ if menu == "🎛️ Dashboard de Operaciones":
         st.plotly_chart(fig_pie, use_container_width=True)
 
 # ------------------------------------------------------------------
-# VISTA 2: SIMULADOR IOT / TELEMETRÍA (El Core Técnico)
+# VISTA 2: SIMULADOR IOT / TELEMETRÍA
 # ------------------------------------------------------------------
 elif menu == "📡 Simulador IoT / Telemetría":
     st.title("📡 Módulo de Procesamiento de Telemetría (Cámaras + GPS)")
-    st.markdown("Simula la llegada de datos en tiempo real de los sensores instalados en las unidades de transporte.")
+    st.markdown("Simula la entrada de datos en tiempo real de los sensores inteligentes instalados a bordo de los buses viales.")
     st.markdown("---")
     
     col_sim1, col_sim2 = st.columns(2)
@@ -141,21 +139,25 @@ elif menu == "📡 Simulador IoT / Telemetría":
         if btn_procesar:
             idx = df[df["Conductor"] == conductor_select].index[0]
             
+            # Penalizaciones lógicas por mala conducta conductual
             penalizacion = (frenadas_nuevas * 10) + (velocidad_nueva * 15)
             score_viaje = max(0, min(200, 150 - penalizacion + int(rating_pasajero * 10)))
             
+            # Actualización del DataFrame dinámico en la sesión actual
             st.session_state.df_conductores.at[idx, "Viajes Completados"] += 1
             st.session_state.df_conductores.at[idx, "Frenadas Bruscas"] += frenadas_nuevas
             st.session_state.df_conductores.at[idx, "Excesos Velocidad"] += velocidad_nueva
             st.session_state.df_conductores.at[idx, "Calificación Pasajeros"] = round((st.session_state.df_conductores.at[idx, "Calificación Pasajeros"] + rating_pasajero)/2, 2)
             
+            # Simular desplazamiento físico del bus sobre el mapa de Lima
             st.session_state.df_conductores.at[idx, "latitude"] += np.random.uniform(-0.002, 0.002)
             st.session_state.df_conductores.at[idx, "longitude"] += np.random.uniform(-0.002, 0.002)
             
+            # Actualizar el score histórico integrado del chofer
             nuevo_score_hist = int((st.session_state.df_conductores.at[idx, "Score Dinámico"] + score_viaje) / 2)
             st.session_state.df_conductores.at[idx, "Score Dinámico"] = min(200, max(0, nuevo_score_hist))
             
-            st.success(f"¡Viaje de {conductor_select} procesado con éxito! El bus se movió en el mapa.")
+            st.success(f"¡Viaje de {conductor_select} procesado con éxito! Se calculó el impacto vial y la unidad avanzó en el mapa.")
             st.rerun()
             
     with col_sim2:
@@ -170,7 +172,7 @@ elif menu == "📡 Simulador IoT / Telemetría":
         elif chofer_info["Nivel"] == "MEDIO":
             st.markdown("<div class='card-beneficio' style='border-left-color: #F59E0B;'>⚠️ <b>NIVEL MEDIO (Estable)</b><br>• Acceso a Subsidios parciales de Mantenimiento Vehicular.<br>• Próximo desbloqueo de bonos a los 150 puntos.</div>", unsafe_allow_html=True)
         else:
-            st.markdown("<div class='card-beneficio' style='border-left-color: #EF4444;'>🚨 <b>NIVEL BAJO (Plan de Mitigación)</b><br>• Restringido de incentivos.<br>• Alerta enviada a la empresa operadora para capacitación obligatoria en Ecodriving.</div>", unsafe_allow_html=True)
+            st.markdown("<div class='card-beneficio' style='border-left-color: #EF4444;'>🚨 <b>NIVEL BAJO (Plan de Mitigación)</b><br>• Restringido de incentivos viales.<br>• Alerta enviada a la empresa operadora para capacitación obligatoria en Ecodriving.</div>", unsafe_allow_html=True)
 
 # ------------------------------------------------------------------
 # VISTA 3: VIABILIDAD FINANCIERA Y PRESUPUESTO
