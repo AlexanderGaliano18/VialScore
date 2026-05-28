@@ -10,12 +10,27 @@ st.set_page_config(
     layout="wide"
 )
 
-# Estilos CSS personalizados para el Dark Mode de VialScore
+# Estilos CSS personalizados para el Dark Mode y el logo circular
 st.markdown("""
     <style>
     .main { background-color: #0B1528; color: #FFFFFF; }
     .stMetric { background-color: #1E293B; padding: 18px; border-radius: 12px; border: 1px solid #00F5D4; box-shadow: 0px 4px 10px rgba(0, 245, 212, 0.1); }
     .card-beneficio { background-color: #1A2333; padding: 15px; border-radius: 10px; border-left: 5px solid #00F5D4; margin-bottom: 10px; }
+    
+    /* Contenedor para recortar la imagen en círculo perfecto */
+    .logo-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+    }
+    .logo-circular {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid #00F5D4;
+        box-shadow: 0px 4px 15px rgba(0, 245, 212, 0.3);
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -30,7 +45,6 @@ if 'df_conductores' not in st.session_state:
         "Excesos Velocidad": [0, 3, 0, 8, 19],
         "Calificación Pasajeros": [4.8, 4.2, 4.9, 3.9, 3.2],
         "Score Dinámico": [185, 142, 195, 85, 38],
-        # Coordenadas simuladas sobre rutas de Javier Prado y Tacna/Garcilaso (Corredor Azul)
         "latitude": [-12.0858, -12.0464, -12.0921, -12.0712, -12.0815],
         "longitude": [-77.0358, -77.0345, -76.9740, -77.0360, -77.0120]
     }
@@ -46,8 +60,16 @@ def calcular_nivel(score):
 
 df["Nivel"] = df["Score Dinámico"].apply(calcular_nivel)
 
-# BARRA LATERAL - CONTROL Y LOGOS
-st.sidebar.image("https://img.icons8.com/external-flat-icons-inoki-color/256/external-Traffic-smart-city-flat-icons-inoki-color.png", width=80)
+# BARRA LATERAL - LOGO CIRCULAR DESDE TU CARPETA LOCAL
+# Intentamos cargar tu imagen local de manera segura
+try:
+    st.sidebar.markdown('<div class="logo-container">', unsafe_allow_html=True)
+    st.sidebar.image("img/vialscore.jpeg", width=120)
+    st.sidebar.markdown('</div>', unsafe_allow_html=True)
+except Exception:
+    # Si por algún motivo de rutas en la nube no la encuentra, coloca un aviso sutil
+    st.sidebar.warning("Coloca tu imagen en img/vialscore.jpeg")
+
 st.sidebar.title("Navegación VialScore")
 menu = st.sidebar.radio("Ir a la Sección:", ["🎛️ Dashboard de Operaciones", "📡 Simulador IoT / Telemetría", "💵 Viabilidad y Presupuesto"])
 
@@ -77,10 +99,6 @@ if menu == "🎛️ Dashboard de Operaciones":
     st.markdown("### 🗺️ Monitoreo de Unidades en Vivo (GPS Tracking Piloto)")
     st.markdown("Mapa en tiempo real que simula el rastreo de los buses asignados a las rutas del Corredor Azul y Av. Javier Prado.")
     
-    # Mapeo de colores según el nivel para el mapa
-    color_map = {"ALTO": [0, 245, 212, 150], "MEDIO": [245, 158, 11, 150], "BAJO": [239, 68, 68, 150]}
-    
-    # Dibujar el mapa nativo de Streamlit de forma rápida y ultra ligera
     st.map(df, latitude="latitude", longitude="longitude", size=40)
     st.caption("💡 *Nota para el jurado: Los puntos representan unidades operando. El tamaño del radio se asocia al dinamismo del Score Conductual del Chofer.*")
     st.markdown("---")
@@ -114,7 +132,6 @@ elif menu == "📡 Simulador IoT / Telemetría":
         st.markdown("### 📥 Registrar Eventos de Viaje (Simulación del Dispositivo)")
         conductor_select = st.selectbox("Seleccionar Unidad / Conductor:", df["Conductor"])
         
-        # Parámetros capturados por la IA en ruta
         frenadas_nuevas = st.number_input("Frenadas Bruscas Detectadas por Sensor:", min_value=0, max_value=10, value=0)
         velocidad_nueva = st.number_input("Infracciones por Exceso de Velocidad (GPS):", min_value=0, max_value=5, value=0)
         rating_pasajero = st.slider("Calificación de Pasajeros vía QR (1 Tap):", 1.0, 5.0, 5.0, step=0.1)
@@ -127,21 +144,18 @@ elif menu == "📡 Simulador IoT / Telemetría":
             penalizacion = (frenadas_nuevas * 10) + (velocidad_nueva * 15)
             score_viaje = max(0, min(200, 150 - penalizacion + int(rating_pasajero * 10)))
             
-            # Actualizar dataframe en session_state
             st.session_state.df_conductores.at[idx, "Viajes Completados"] += 1
             st.session_state.df_conductores.at[idx, "Frenadas Bruscas"] += frenadas_nuevas
             st.session_state.df_conductores.at[idx, "Excesos Velocidad"] += velocidad_nueva
             st.session_state.df_conductores.at[idx, "Calificación Pasajeros"] = round((st.session_state.df_conductores.at[idx, "Calificación Pasajeros"] + rating_pasajero)/2, 2)
             
-            # Mover ligeramente la coordenada para simular que avanzó en el mapa tras el viaje
             st.session_state.df_conductores.at[idx, "latitude"] += np.random.uniform(-0.002, 0.002)
             st.session_state.df_conductores.at[idx, "longitude"] += np.random.uniform(-0.002, 0.002)
             
-            # Promediar el nuevo score en su Score Dinámico histórico
             nuevo_score_hist = int((st.session_state.df_conductores.at[idx, "Score Dinámico"] + score_viaje) / 2)
             st.session_state.df_conductores.at[idx, "Score Dinámico"] = min(200, max(0, nuevo_score_hist))
             
-            st.success(f"¡Viaje de {conductor_select} procesado con éxito! El bus se movió en el mapa y su nuevo Score es {st.session_state.df_conductores.at[idx, 'Score Dinámico']} pts.")
+            st.success(f"¡Viaje de {conductor_select} procesado con éxito! El bus se movió en el mapa.")
             st.rerun()
             
     with col_sim2:
