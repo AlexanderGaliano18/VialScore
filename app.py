@@ -1,98 +1,172 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import numpy as np
 
-# Configuración de la página de VialScore
+# 1. CONFIGURACIÓN E IDENTIDAD VISUAL DE VIALSCORE
 st.set_page_config(
-    page_title="VialScore - Panel de Operaciones",
+    page_title="VialScore - Panel de Control Integral",
     page_icon="🚘",
     layout="wide"
 )
 
-# Estilo personalizado (Dark Mode elegante alineado con VialScore)
+# Estilos CSS personalizados para el Dark Mode de VialScore
 st.markdown("""
     <style>
     .main { background-color: #0B1528; color: #FFFFFF; }
-    .stMetric { background-color: #1E293B; padding: 15px; border-radius: 10px; border: 1px solid #00F5D4; }
+    .stMetric { background-color: #1E293B; padding: 18px; border-radius: 12px; border: 1px solid #00F5D4; box-shadow: 0px 4px 10px rgba(0, 245, 212, 0.1); }
+    .card-beneficio { background-color: #1A2333; padding: 15px; border-radius: 10px; border-left: 5px solid #00F5D4; margin-bottom: 10px; }
     </style>
-    """, unsafe_style_headers=True)
+    """, unsafe_allow_html=True)
 
-# Encabezado del Proyecto
-st.title("🚘 VialScore: Control y Gestión Conductual")
-st.subheader("AAP Innovation Challenge 2026 | Equipo NextStep")
-st.markdown("---")
+# Inicializar Base de Datos en Estado de Sesión (Session State) para simular persistencia
+if 'df_conductores' not in st.session_state:
+    raw_data = {
+        "ID": [101, 102, 103, 104, 105],
+        "Conductor": ["Luis Mendoza", "Carlos Jayo", "Jorge Quispe", "Andrés Soto", "Miguel Benites"],
+        "Ruta": ["Javier Prado", "Corredor Azul", "Javier Prado", "Corredor Azul", "Javier Prado"],
+        "Viajes Completados": [124, 98, 110, 45, 12],
+        "Frenadas Bruscas": [2, 5, 1, 12, 28],
+        "Excesos Velocidad": [0, 3, 0, 8, 19],
+        "Calificación Pasajeros": [4.8, 4.2, 4.9, 3.9, 3.2],
+        "Score Dinámico": [185, 142, 195, 85, 38]
+    }
+    st.session_state.df_conductores = pd.DataFrame(raw_data)
 
-# 1. KPIs Principales del Piloto (Meta del Mes 6)
-st.markdown("### 📊 Indicadores de Éxito del Piloto (Flota de 50 Vehículos)")
-col1, col2, col3, col4 = st.columns(4)
+df = st.session_state.df_conductores
 
-with col1:
-    st.metric(label="Reducción de Infracciones", value="-25%", delta="Meta Alcanzada")
-with col2:
-    st.metric(label="Score Promedio Flota", value="142 pts", delta="+42 pts vs Inicio")
-with col3:
-    st.metric(label="Satisfacción del Pasajero", value="4.2 / 5.0", delta="+0.2")
-with col4:
-    st.metric(label="Conductores Activos en App", value="85%", delta="Meta: >80%")
+# ALGORITMO CONDUCTUAL PARA CLASIFICACIÓN DE NIVELES (Pilar 2)
+def calcular_nivel(score):
+    if score >= 150: return "ALTO"
+    elif score >= 80: return "MEDIO"
+    else: return "BAJO"
 
-st.markdown("---")
+df["Nivel"] = df["Score Dinámico"].apply(calcular_nivel)
 
-# 2. Base de Datos Simulada de Conductores (Evidencia de Campo)
-# Clasificación según el pilar de Score Dinámico: Alto (150-200), Medio (80-149), Bajo (0-79)
-data_conductores = {
-    "Conductor": ["Luis Mendoza", "Carlos Jayo", "Jorge Quispe", "Andrés Soto", "Miguel Benites"],
-    "Ruta": ["Javier Prado", "Corredor Azul", "Javier Prado", "Corredor Azul", "Javier Prado"],
-    "Viajes Seguros": [124, 98, 110, 45, 12],
-    "Frenadas Bruscas": [2, 5, 1, 12, 28],
-    "Score Dinámico": [185, 142, 190, 85, 42],
-    "Nivel": ["ALTO", "MEDIO", "ALTO", "MEDIO", "BAJO"]
-}
+# BARRA LATERAL - CONTROL Y LOGOS
+st.sidebar.image("https://img.icons8.com/external-flat-icons-inoki-color/256/external-Traffic-smart-city-flat-icons-inoki-color.png", width=80)
+st.sidebar.title("Navegación VialScore")
+menu = st.sidebar.radio("Ir a la Sección:", ["🎛️ Dashboard de Operaciones", "📡 Simulador IoT / Telemetría", "💵 Viabilidad y Presupuesto"])
 
-df = pd.DataFrame(data_conductores)
+# ------------------------------------------------------------------
+# VISTA 1: DASHBOARD DE OPERACIONES
+# ------------------------------------------------------------------
+if menu == "🎛️ Dashboard de Operaciones":
+    st.title("🚘 VialScore: Sistema de Gestión Conductual de Transporte")
+    st.caption("AAP Innovation Challenge 2026 | Desarrollado por Equipo NextStep")
+    st.markdown("---")
+    
+    # KPIs Globales (Filtro Dinámico)
+    st.markdown("### 📊 Indicadores Clave del Piloto (Flota Actual)")
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric(label="Reducción de Siniestros (Proyectado)", value="-30%", delta="Meta Base: -25%")
+    with col2:
+        st.metric(label="Score Promedio de Flota", value=f"{int(df['Score Dinámico'].mean())} pts", delta="+49 vs Línea Base")
+    with col3:
+        st.metric(label="Satisfacción Promedio Pasajero", value=f"{df['Calificación Pasajeros'].mean():.2f} / 5.0", delta="+15% este mes")
+    with col4:
+        st.metric(label="Conductores en Nivel Alto", value=f"{len(df[df['Nivel']=='ALTO'])} / {len(df)}", delta="Crecimiento sostenido")
+        
+    st.markdown("---")
+    
+    # Filtros de Rutas
+    rutas = st.multiselect("Filtrar por Corredor Vial Piloto:", options=df["Ruta"].unique(), default=df["Ruta"].unique())
+    df_filtrado = df[df["Ruta"].isin(rutas)]
+    
+    # Gráficos e Información cruzada
+    c1, c2 = st.columns([2, 1])
+    with c1:
+        st.markdown("### 📋 Registro en Tiempo Real de Conductores Formales")
+        st.dataframe(df_filtrado.style.background_gradient(cmap="summer", subset=["Score Dinámico", "Calificación Pasajeros"]), use_container_width=True)
+    with c2:
+        st.markdown("### 🎯 Distribución de la Flota por Niveles")
+        fig_pie = px.pie(df_filtrado, names='Nivel', values='Score Dinámico', color='Nivel',
+                         color_discrete_map={'ALTO': '#00F5D4', 'MEDIO': '#F59E0B', 'BAJO': '#EF4444'}, hole=0.3)
+        st.plotly_chart(fig_pie, use_container_width=True)
 
-# Lógica de Filtros en la Barra Lateral
-st.sidebar.header("Filtros de Búsqueda")
-ruta_seleccionada = st.sidebar.multiselect(
-    "Selecciona la Ruta Piloto:",
-    options=df["Ruta"].unique(),
-    default=df["Ruta"].unique()
-)
+# ------------------------------------------------------------------
+# VISTA 2: SIMULADOR IOT / TELEMETRÍA (El Core Técnico)
+# ------------------------------------------------------------------
+elif menu == "📡 Simulador IoT / Telemetría":
+    st.title("📡 Módulo de Procesamiento de Telemetría (Cámaras + GPS)")
+    st.markdown("Simula la llegada de datos en tiempo real de los sensores instalados en las unidades de transporte.")
+    st.markdown("---")
+    
+    col_sim1, col_sim2 = st.columns(2)
+    
+    with col_sim1:
+        st.markdown("### 📥 Registrar Eventos de Viaje (Simulación del Dispositivo)")
+        conductor_select = st.selectbox("Seleccionar Unidad / Conductor:", df["Conductor"])
+        
+        # Parámetros capturados por la IA en ruta
+        frenadas_nuevas = st.number_input("Frenadas Bruscas Detectadas por Sensor:", min_value=0, max_value=10, value=0)
+        velocidad_nueva = st.number_input("Infracciones por Exceso de Velocidad (GPS):", min_value=0, max_value=5, value=0)
+        rating_pasajero = st.slider("Calificación de Pasajeros vía QR (1 Tap):", 1.0, 5.0, 5.0, step=0.1)
+        
+        btn_procesar = st.button("🚀 Procesar Datos de Telemetría y Actualizar Score")
+        
+        if btn_procesar:
+            # Algoritmo de actualización del Score Dinámico (Pilar 2)
+            # Base de 100 puntos por viaje. Penaliza -10 por frenada y -15 por exceso de velocidad. Bonus por buena calificación.
+            idx = df[df["Conductor"] == conductor_select].index[0]
+            
+            penalizacion = (frenadas_nuevas * 10) + (velocidad_nueva * 15)
+            score_viaje = max(0, min(200, 150 - penalizacion + int(rating_pasajero * 10)))
+            
+            # Actualizar dataframe en session_state
+            st.session_state.df_conductores.at[idx, "Viajes Completados"] += 1
+            st.session_state.df_conductores.at[idx, "Frenadas Bruscas"] += frenadas_nuevas
+            st.session_state.df_conductores.at[idx, "Excesos Velocidad"] += velocidad_nueva
+            st.session_state.df_conductores.at[idx, "Calificación Pasajeros"] = round((st.session_state.df_conductores.at[idx, "Calificación Pasajeros"] + rating_pasajero)/2, 2)
+            
+            # Promediar el nuevo score en su Score Dinámico histórico
+            nuevo_score_hist = int((st.session_state.df_conductores.at[idx, "Score Dinámico"] + score_viaje) / 2)
+            st.session_state.df_conductores.at[idx, "Score Dinámico"] = min(200, max(0, nuevo_score_hist))
+            
+            st.success(f"¡Viaje de {conductor_select} procesado con éxito! Score del viaje: {score_viaje} pts. Base de datos actualizada.")
+            
+    with col_sim2:
+        st.markdown("### 🎁 Billetera Digital de Incentivos (Pilar 3)")
+        idx_c = df[df["Conductor"] == conductor_select].index[0]
+        chofer_info = df.iloc[idx_c]
+        
+        st.markdown(f"**Conductor:** {chofer_info['Conductor']} | **Puntaje Actual:** `{chofer_info['Score Dinámico']} / 200 pts`")
+        
+        if chofer_info["Nivel"] == "ALTO":
+            st.markdown("<div class='card-beneficio'>🏆 <b>NIVEL ALTO DESBLOQUEADO</b><br>• 20% Descuento Directo en renovación de SOAT.<br>• Acceso Prioritario a Microcréditos de Finanzas.<br>• Bono de Combustible Premium.</div>", unsafe_allow_html=True)
+        elif chofer_info["Nivel"] == "MEDIO":
+            st.markdown("<div class='card-beneficio' style='border-left-color: #F59E0B;'>⚠️ <b>NIVEL MEDIO (Estable)</b><br>• Acceso a Subsidios parciales de Mantenimiento Vehicular.<br>• Próximo desbloqueo de bonos a los 150 puntos.</div>", unsafe_allow_html=True)
+        else:
+            st.markdown("<div class='card-beneficio' style='border-left-color: #EF4444;'>🚨 <b>NIVEL BAJO (Plan de Mitigación)</b><br>• Restringido de incentivos.<br>• Alerta enviada a la empresa operadora para capacitación obligatoria en Ecodriving.</div>", unsafe_allow_html=True)
 
-df_filtrado = df[df["Ruta"].isin(ruta_seleccionada)]
-
-# 3. Visualización de Datos (Gráfico de Distribución de Scores)
-col_left, col_right = st.columns([2, 1])
-
-with col_left:
-    st.markdown("### 📋 Monitoreo de Conductores en Tiempo Real")
-    # Mostrar la tabla formateada con los datos dinámicos
-    st.dataframe(df_filtrado.style.background_gradient(cmap="Blues", subset=["Score Dinámico"]), use_container_width=True)
-
-with col_right:
-    st.markdown("### 🎯 Distribución por Niveles")
-    fig = px.pie(
-        df_filtrado, 
-        names='Nivel', 
-        values='Score Dinámico',
-        color='Nivel',
-        color_discrete_map={'ALTO': '#00F5D4', 'MEDIO': '#F59E0B', 'BAJO': '#EF4444'},
-        hole=0.4
-    )
-    fig.update_layout(margin=dict(t=0, b=0, l=0, r=0), showlegend=True)
-    st.plotly_chart(fig, use_container_width=True)
-
-st.markdown("---")
-
-# 4. Sección de Impacto y Beneficios Tangibles (SCS-TP)
-st.markdown("### 🎁 Sistema de Incentivos y Activos Económicos del Conductor")
-conductor_select = st.selectbox("Selecciona un conductor para evaluar sus beneficios acumulados:", df["Conductor"])
-
-datos_chofer = df[df["Conductor"] == conductor_select].iloc[0]
-
-st.markdown(f"**Estado actual de {conductor_select}:**")
-if datos_chofer["Nivel"] == "ALTO":
-    st.success(f"🏆 **Nivel ALTO ({datos_chofer['Score Dinámico']} pts):** Habilitado para un 20% de descuento en el SOAT y acceso prioritario a microcréditos viales.")
-elif datos_chofer["Nivel"] == "MEDIO":
-    st.warning(f"⚠️ **Nivel MEDIO ({datos_chofer['Score Dinámico']} pts):** Cumple con las normas básicas. A un paso de desbloquear subsidios de mantenimiento vehicular.")
-else:
-    st.error(f"🚨 **Nivel BAJO ({datos_chofer['Score Dinámico']} pts):** Conductor en riesgo. Requiere capacitación en ecodriving y alertas prioritarias.")
+# ------------------------------------------------------------------
+# VISTA 3: VIABILIDAD FINANCIERA Y PRESUPUESTO
+# ------------------------------------------------------------------
+elif menu == "💵 Viabilidad y Presupuesto":
+    st.title("📊 Análisis Financiero y Viabilidad del Proyecto")
+    st.markdown("Proyección presupuestaria para el Piloto Inicial de 6 meses en Lima Metropolitana.")
+    st.markdown("---")
+    
+    c_fin1, c_fin2 = st.columns(2)
+    with c_fin1:
+        st.markdown("### 📈 Costos del Piloto (50 Vehículos / 6 Meses)")
+        presupuesto = {
+            "Concepto de Inversión": ["Hardware (Cámaras + GPS IoT)", "Desarrollo del MVP Móvil", "Infraestructura Cloud / Servidores", "Operaciones, Equipo y Monitoreo"],
+            "Monto (USD)": [25000, 15000, 5000, 10000]
+        }
+        df_p = pd.DataFrame(presupuesto)
+        st.table(df_p)
+        st.metric(label="Total Inversión Requerida", value="US$ 55,000")
+        
+    with c_fin2:
+        st.markdown("### 💸 Canales de Financiamiento e Ingresos")
+        fig_fin = px.bar(
+            x=["Suscripción Empresas", "Subsidio Esperado MTC", "Brecha Financiera"],
+            y=[12000, 20000, 23000],
+            labels={'x': 'Fuente de Financiamiento', 'y': 'Monto en USD'},
+            title="Estructura de Financiamiento del Piloto",
+            color_discrete_sequence=['#00F5D4']
+        )
+        st.plotly_chart(fig_fin, use_container_width=True)
+        st.info("💡 **Ahorro Social Estimado:** El despliegue a gran escala de VialScore proyecta un ahorro de S/ 2,000 millones a 5 años en reducción de costos por siniestros y congestión vial en el Perú.")
